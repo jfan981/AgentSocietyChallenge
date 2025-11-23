@@ -143,3 +143,50 @@ class OpenAILLM(LLMBase):
     
     def get_embedding_model(self):
         return self.embedding_model 
+
+# Added Deepseek model for testing
+class DeepseekLLM(LLMBase):
+    def __init__(self, api_key: str, model: str = "deepseek-chat"):
+        """
+        Initialize DeepSeek LLM
+        
+        Args:
+            api_key: DeepSeek API key
+            model: Model name, defaults to deepseek-chat
+        """
+        super().__init__(model)
+        self.client = OpenAI(
+            api_key=api_key,
+            base_url="https://api.deepseek.com"
+        )
+        # DeepSeek does not currently have a drop-in replacement for OpenAIEmbeddings 
+        # in this specific context, so we set it to None. 
+        # If your agent requires embeddings, you may need an OpenAI key or local model.
+        self.embedding_model = None
+        
+    @retry(
+        retry=retry_if_exception_type(Exception),
+        wait=wait_exponential(multiplier=1, min=5, max=60),
+        stop=stop_after_attempt(5)
+    )
+    def __call__(self, messages: List[Dict[str, str]], model: Optional[str] = None, temperature: float = 0.0, max_tokens: int = 500, stop_strs: Optional[List[str]] = None, n: int = 1) -> Union[str, List[str]]:
+        try:
+            response = self.client.chat.completions.create(
+                model=model or self.model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                stop=stop_strs,
+                n=n,
+            )
+            
+            if n == 1:
+                return response.choices[0].message.content
+            else:
+                return [choice.message.content for choice in response.choices]
+        except Exception as e:
+            logger.error(f"DeepSeek LLM Error: {e}")
+            raise e
+    
+    def get_embedding_model(self):
+        return self.embedding_model
