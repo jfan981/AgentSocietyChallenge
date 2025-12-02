@@ -190,3 +190,55 @@ class DeepseekLLM(LLMBase):
     
     def get_embedding_model(self):
         return self.embedding_model
+
+# Added Gemini model for testing
+class GeminiLLM(LLMBase):
+    def __init__(self, api_key: str, model: str = "gemini-2.5-flash"):
+        """
+        Initialize Gemini LLM using Google's OpenAI-compatible endpoint.
+        """
+        super().__init__(model)
+        self.client = OpenAI(
+            api_key=api_key,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+        )
+        self.embedding_model = None
+        
+    @retry(
+        retry=retry_if_exception_type(Exception),
+        wait=wait_exponential(multiplier=1, min=2, max=30),
+        stop=stop_after_attempt(5)
+    )
+    def __call__(self, messages: List[Dict[str, str]], model: Optional[str] = None, temperature: float = 0.0, max_tokens: int = 500, stop_strs: Optional[List[str]] = None, n: int = 1) -> Union[str, List[str]]:
+        try:
+
+            request_kwargs = {
+                "model": model or self.model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "n": n
+ 
+            }
+            
+            if stop_strs is not None:
+                request_kwargs["stop"] = stop_strs
+
+            response = self.client.chat.completions.create(**request_kwargs)
+            
+            if n == 1:
+                content = response.choices[0].message.content
+                if content is None:
+                    logger.warning("Gemini returned None (Safety Filter triggered). Returning empty string to retry.")
+                    return ""
+                return content
+            else:
+                # return [choice.message.content for choice in response.choices]
+                return [choice.message.content if choice.message.content else "" for choice in response.choices]
+                
+        except Exception as e:
+            logger.error(f"Gemini LLM Error: {e}")
+            raise e
+    
+    def get_embedding_model(self):
+        return self.embedding_model

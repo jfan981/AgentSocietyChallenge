@@ -2,7 +2,7 @@ import json
 from websocietysimulator import Simulator
 from websocietysimulator.agent import RecommendationAgent
 import tiktoken
-from websocietysimulator.llm import LLMBase, InfinigenceLLM, DeepseekLLM, OpenAILLM
+from websocietysimulator.llm import LLMBase, InfinigenceLLM, DeepseekLLM, OpenAILLM, GeminiLLM
 from websocietysimulator.agent.modules.planning_modules import PlanningBase
 from websocietysimulator.agent.modules.reasoning_modules import ReasoningBase
 import re
@@ -335,12 +335,14 @@ class MyRecommendationAgent(RecommendationAgent):
 if __name__ == "__main__":
     
     try:
-        from key import DEEPSEEK_API_KEY
+        from key import DEEPSEEK_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY
     except ImportError:
         print("Error: key.py not found. Please create it with your API key.")
         DEEPSEEK_API_KEY = ""
+        GEMINI_API_KEY = ""
+        OPENAI_API_KEY = ""
         
-    task_set = "yelp" # "goodreads" or "yelp"
+    task_set = "yelp"
     # Initialize Simulator
     simulator = Simulator(data_dir="./db", device="auto", cache=True)
 
@@ -351,9 +353,17 @@ if __name__ == "__main__":
     simulator.set_agent(MyRecommendationAgent)
 
     # Set LLM client
-    # simulator.set_llm(OpenAILLM(api_key=""))
-    # for thinking model: deepseek-reasoner
+    
+    # for tests with OpenAI
+    # simulator.set_llm(OpenAILLM(api_key=OPENAI_API_KEY, model="gpt-4o-mini")))
+    
+    # for tests with DeepSeek
     simulator.set_llm(DeepseekLLM(api_key=DEEPSEEK_API_KEY, model="deepseek-chat"))
+    
+    # for tests with Gemini
+    # option for testing, but triggers Gemini's Safety Filter due to keywords like Alcohol
+    # will not be used for evaluation
+    # simulator.set_llm(GeminiLLM(api_key=GEMINI_API_KEY, model="gemini-2.5-flash"))
 
     # Run evaluation
     # If you don't set the number of tasks, the simulator will run all tasks.
