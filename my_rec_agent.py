@@ -72,7 +72,7 @@ class RecReasoning(ReasoningBase):
         reasoning_result = self.llm(
             messages=messages,
             temperature=0.1,
-            max_tokens=1000
+            max_tokens=1500 # Increased slightly to allow for Chain of Thought analysis
         )
         
         return reasoning_result
@@ -239,7 +239,8 @@ class MyRecommendationAgent(RecommendationAgent):
     - Member since: {user_info.get('yelping_since', 'N/A')}
     """
         
-        # Build prompt for LLM ranking task
+        # Chain of Thought Prompting
+        # ask for "Reasoning" before the list to force the LLM to think
         task_description = f'''
     You are a Yelp recommendation system. Your task is to rank 20 {target_type} businesses for a user based on their preferences.
 
@@ -260,34 +261,75 @@ class MyRecommendationAgent(RecommendationAgent):
     ###The 20 Candidate Businesses Information are:
     {item_list}
 
-    Output ONLY a Python list of business IDs in ranked order, nothing else:
-    ['item_id1', 'item_id2', 'item_id3', ...]
+    ## OUTPUT FORMAT:
+    First, provide a brief reasoning analysis.
+    Then, output the final Python list of business IDs.
+    
+    Example:
+    Analysis: The user loves spicy food...
+    Final List: ['id1', 'id2', ...]
 
     ##CRITICAL INSTRUCTIONS:
-    1. Output ONLY item_id values, NOT business names
-    2. All 20 IDs must be unique (no duplicates)
+    1. Output ONLY item_id values in the list.
+    2. All 20 IDs must be unique (no duplicates).
     3. Use EXACTLY these IDs: {self.task['candidate_list']}
-
-    ###Example correct output: ['OjFr_sk32NOhYSvA_Ucd5Q', 'PdBwl7tlFhOBR3p4kMd9Hw', ...]
-
-    ###Example WRONG output (do not use names): ['Target', 'ALDI', 'Best Buy', ...]
     '''
         
-        # Get LLM ranking result
-        result = self.reasoning(task_description)
+        # Reflection (Retry Loop) & Robust Fallback
+        # Instead of failing with [''], we try 3 times to fix errors.
+        # If all else fails, we return the random candidate list (Score > 0).
 
-        # Parse output: extract list from LLM response
-        try:
-            match = re.search(r"\[.*\]", result, re.DOTALL)
-            if match:
-                result = match.group()
-            else:
-                print("No list found.")
-            print('Processed Output:', eval(result))
-            return eval(result)
-        except:
-            print('format error')
-            return ['']
+        max_retries = 2
+        current_prompt = task_description
+        
+        for attempt in range(max_retries + 1):
+            # Get LLM result
+            result = self.reasoning(current_prompt)
+
+            try:
+                # 1. Regex to find the list (ignoring the reasoning text)
+                match = re.search(r"\[.*\]", result, re.DOTALL)
+                if match:
+                    # Clean potential markdown
+                    clean_str = match.group().replace("```python", "").replace("```", "")
+                    parsed_list = eval(clean_str)
+                    
+                    if not isinstance(parsed_list, list):
+                        raise ValueError("Output is not a valid Python list")
+
+                    # 2. Validation: Ensure we only have valid IDs
+                    valid_ids = set(self.task['candidate_list'])
+                    
+                    # Filter: Keep valid IDs found by LLM
+                    clean_rank = [x for x in parsed_list if x in valid_ids]
+                    
+                    # Remove duplicates while preserving order
+                    seen = set()
+                    unique_rank = []
+                    for x in clean_rank:
+                        if x not in seen:
+                            unique_rank.append(x)
+                            seen.add(x)
+                    
+                    # 3. Completion: If LLM missed some IDs, append them at the end
+                    missing_ids = [x for x in valid_ids if x not in seen]
+                    final_rank = unique_rank + missing_ids
+                    
+                    # Success
+                    return final_rank
+                else:
+                    raise ValueError("No list brackets [] found in output")
+                    
+            except Exception as e:
+                print(f"Attempt {attempt+1} Failed: {e}")
+                # Update prompt with error to guide self-correction
+                current_prompt = task_description + f"\n\nERROR: Your previous output failed with: {e}. Please output a valid Python list of IDs."
+        
+        # Robust Fallback
+        # If all retries fail, return the default list.
+
+        print("All retries failed. Returning default candidate list.")
+        return self.task['candidate_list']
 
 
 if __name__ == "__main__":
