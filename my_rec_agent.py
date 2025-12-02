@@ -263,11 +263,11 @@ class MyRecommendationAgent(RecommendationAgent):
 
     ## OUTPUT FORMAT:
     First, provide a brief reasoning analysis.
-    Then, output the final Python list of business IDs.
+    Then, output the final Python list of business IDs in ranked order.
     
     Example:
     Analysis: The user loves spicy food...
-    Final List: ['id1', 'id2', ...]
+    Final List: ['item_id1', 'item_id2', ...]
 
     ##CRITICAL INSTRUCTIONS:
     1. Output ONLY item_id values in the list.
