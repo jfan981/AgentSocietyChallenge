@@ -355,10 +355,10 @@ if __name__ == "__main__":
     # Set LLM client
     
     # for tests with OpenAI
-    # simulator.set_llm(OpenAILLM(api_key=OPENAI_API_KEY, model="gpt-4o-mini")))
+    simulator.set_llm(OpenAILLM(api_key=OPENAI_API_KEY, model="gpt-4o-mini"))
     
     # for tests with DeepSeek
-    simulator.set_llm(DeepseekLLM(api_key=DEEPSEEK_API_KEY, model="deepseek-chat"))
+    # simulator.set_llm(DeepseekLLM(api_key=DEEPSEEK_API_KEY, model="deepseek-chat"))
     
     # for tests with Gemini
     # option for testing, but triggers Gemini's Safety Filter due to keywords like Alcohol
@@ -366,8 +366,8 @@ if __name__ == "__main__":
     # simulator.set_llm(GeminiLLM(api_key=GEMINI_API_KEY, model="gemini-2.5-flash"))
 
     # Run evaluation
-    # If you don't set the number of tasks, the simulator will run all tasks.
-    agent_outputs = simulator.run_simulation(number_of_tasks=None, enable_threading=True, max_workers=10)
+    # max_workers=3 for openai, max_workers=10 works for deepseek
+    agent_outputs = simulator.run_simulation(number_of_tasks=None, enable_threading=True, max_workers=3)
 
     # Evaluate the agent
     evaluation_results = simulator.evaluate()
