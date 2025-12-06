@@ -119,7 +119,7 @@ class MyRecommendationAgent(RecommendationAgent):
                     item_list.append(filtered_item)
                     
             elif 'review' in sub_task['description']:
-                # ========== Context Retrieval Module ==========
+                # Context Retrieval Module
                 all_reviews = self.interaction_tool.get_reviews(user_id=self.task['user_id'])
                 
                 # Extract target category from task (e.g., "business - Food & Dining" -> "food & dining")
